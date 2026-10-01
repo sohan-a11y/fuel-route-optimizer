@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "71851421-372d-46d5-9ffd-ff67f5616c1b",
 		"name": "Fuel Route Optimizer API",
-		"description": "Production-ready Postman collection for testing the Django Fuel Route Optimization API",
+		"description": "Production-ready Postman collection for testing the Django Fuel Route Optimization API with multi-vehicle tank support (Truck, Car, SUV, Bike)",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -16,12 +16,12 @@
 					"host": ["{{base_url}}"],
 					"path": ["api", "health", ""]
 				},
-				"description": "Check API health and total loaded fuel stations count."
+				"description": "Check API health and total loaded fuel stations count (6,626 US stations)."
 			},
 			"response": []
 		},
 		{
-			"name": "Optimize Route (NY to LA - Cross Country)",
+			"name": "1. Commercial Truck (500 mi Range, 10 MPG, 50 Gal Tank)",
 			"request": {
 				"method": "POST",
 				"header": [
@@ -32,19 +32,19 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"start\": \"New York, NY\",\n    \"finish\": \"Los Angeles, CA\"\n}"
+					"raw": "{\n    \"start\": \"New York, NY\",\n    \"finish\": \"Los Angeles, CA\",\n    \"vehicle_type\": \"truck\"\n}"
 				},
 				"url": {
 					"raw": "{{base_url}}/api/route/",
 					"host": ["{{base_url}}"],
 					"path": ["api", "route", ""]
 				},
-				"description": "Long distance cross-country route (~2,790 miles). Calculates 6 optimal fuel stops where each leg is under 500 miles and fuel price is minimized."
+				"description": "Assessment default: Commercial truck with 500-mile max range, 10 MPG, and 50-gallon tank capacity. Refuel at each stop is capped at 50 gallons."
 			},
 			"response": []
 		},
 		{
-			"name": "Optimize Route (Austin to Dallas - Under 500 Miles)",
+			"name": "2. Passenger Car (420 mi Range, 30 MPG, 14 Gal Tank)",
 			"request": {
 				"method": "POST",
 				"header": [
@@ -55,19 +55,19 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"start\": \"Austin, TX\",\n    \"finish\": \"Dallas, TX\"\n}"
+					"raw": "{\n    \"start\": \"New York, NY\",\n    \"finish\": \"Los Angeles, CA\",\n    \"vehicle_type\": \"car\"\n}"
 				},
 				"url": {
 					"raw": "{{base_url}}/api/route/",
 					"host": ["{{base_url}}"],
 					"path": ["api", "route", ""]
 				},
-				"description": "Trip under 500 miles. Reaches destination on initial full tank without mid-route stops, calculating total fuel cost."
+				"description": "Standard passenger car: 14-gallon tank, 30 MPG, 420-mile range. Notice refuels are ~12-13 gallons per stop, never exceeding the 14-gallon tank."
 			},
 			"response": []
 		},
 		{
-			"name": "Optimize Route (Chicago to Miami - Mid Distance)",
+			"name": "3. Motorcycle / Bike (200 mi Range, 45 MPG, 4.5 Gal Tank)",
 			"request": {
 				"method": "POST",
 				"header": [
@@ -78,19 +78,19 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"start\": \"Chicago, IL\",\n    \"finish\": \"Miami, FL\"\n}"
+					"raw": "{\n    \"start\": \"Austin, TX\",\n    \"finish\": \"Dallas, TX\",\n    \"vehicle_type\": \"bike\"\n}"
 				},
 				"url": {
 					"raw": "{{base_url}}/api/route/",
 					"host": ["{{base_url}}"],
 					"path": ["api", "route", ""]
 				},
-				"description": "Medium-long distance route (~1,370 miles) across Midwest to Southeast."
+				"description": "Motorcycle profile: 4.5-gallon tank, 45 MPG, 200-mile range. Shows realistic small refills."
 			},
 			"response": []
 		},
 		{
-			"name": "Optimize Route (Latitude & Longitude Coordinates Input)",
+			"name": "4. SUV / Light Truck (440 mi Range, 20 MPG, 22 Gal Tank)",
 			"request": {
 				"method": "POST",
 				"header": [
@@ -101,38 +101,60 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"start\": \"30.2672, -97.7431\",\n    \"finish\": \"32.7767, -96.7970\"\n}"
+					"raw": "{\n    \"start\": \"Chicago, IL\",\n    \"finish\": \"Miami, FL\",\n    \"vehicle_type\": \"suv\"\n}"
 				},
 				"url": {
 					"raw": "{{base_url}}/api/route/",
 					"host": ["{{base_url}}"],
 					"path": ["api", "route", ""]
 				},
-				"description": "Accepts direct coordinates (lat, lon) bypassing geocoding."
+				"description": "SUV profile: 22-gallon tank, 20 MPG, 440-mile range."
 			},
 			"response": []
 		},
 		{
-			"name": "Optimize Route (GET with Query Params)",
+			"name": "5. Short Distance Trip (< 500 Miles Single Tank)",
 			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "{{base_url}}/api/route/?start=Austin,%20TX&finish=Dallas,%20TX",
-					"host": ["{{base_url}}"],
-					"path": ["api", "route", ""],
-					"query": [
-						{
-							"key": "start",
-							"value": "Austin, TX"
-						},
-						{
-							"key": "finish",
-							"value": "Dallas, TX"
-						}
-					]
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"start\": \"Austin, TX\",\n    \"finish\": \"Dallas, TX\",\n    \"vehicle_type\": \"truck\"\n}"
 				},
-				"description": "GET request alternative for quick browser or query-param based testing."
+				"url": {
+					"raw": "{{base_url}}/api/route/",
+					"host": ["{{base_url}}"],
+					"path": ["api", "route", ""]
+				},
+				"description": "Trip within vehicle range (195 mi <= 500 mi range). Confirms 0 mid-route stops required on initial tank."
+			},
+			"response": []
+		},
+		{
+			"name": "6. Coordinates Input (Direct Lat, Lon)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"start\": \"30.2672, -97.7431\",\n    \"finish\": \"32.7767, -96.7970\",\n    \"vehicle_type\": \"car\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/route/",
+					"host": ["{{base_url}}"],
+					"path": ["api", "route", ""]
+				},
+				"description": "Direct latitude/longitude inputs with a car profile."
 			},
 			"response": []
 		}

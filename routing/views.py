@@ -45,6 +45,10 @@ class RouteFuelOptimizationView(APIView):
 
         start_input = serializer.validated_data["start"]
         finish_input = serializer.validated_data["finish"]
+        vehicle_type = serializer.validated_data.get("vehicle_type", "truck")
+        custom_range = serializer.validated_data.get("max_range_miles")
+        custom_mpg = serializer.validated_data.get("fuel_efficiency_mpg")
+        custom_capacity = serializer.validated_data.get("tank_capacity_gallons")
 
         start_time = time.perf_counter()
         total_external_calls = 0
@@ -67,8 +71,14 @@ class RouteFuelOptimizationView(APIView):
             )
             total_external_calls += calls3
 
-            # 4. Fuel Stop Optimization along route (0 external calls - purely local DB + spatial)
-            optimization_result = optimize_fuel_stops(route_data)
+            # 4. Fuel Stop Optimization tailored to vehicle profile and physical tank limits
+            optimization_result = optimize_fuel_stops(
+                route_data=route_data,
+                vehicle_type=vehicle_type,
+                custom_range=custom_range,
+                custom_mpg=custom_mpg,
+                custom_capacity=custom_capacity,
+            )
 
             execution_time_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
@@ -76,11 +86,13 @@ class RouteFuelOptimizationView(APIView):
                 "status": "success",
                 "start_location": start_label,
                 "finish_location": finish_label,
+                "vehicle": optimization_result["vehicle"],
                 "total_distance_miles": optimization_result["total_distance_miles"],
                 "total_duration_hours": optimization_result["total_duration_hours"],
                 "duration_formatted": optimization_result["duration_formatted"],
                 "fuel_efficiency_mpg": optimization_result["fuel_efficiency_mpg"],
                 "vehicle_max_range_miles": optimization_result["vehicle_max_range_miles"],
+                "tank_capacity_gallons": optimization_result["tank_capacity_gallons"],
                 "total_gallons_consumed": optimization_result["total_gallons_consumed"],
                 "total_fuel_cost": optimization_result["total_fuel_cost"],
                 "fuel_stops_count": optimization_result["fuel_stops_count"],

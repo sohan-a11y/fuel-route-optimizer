@@ -318,6 +318,16 @@
                 <input type="text" id="finish-input" value="Los Angeles, CA" placeholder="City, State">
             </div>
 
+            <div class="input-group">
+                <label>Vehicle Type</label>
+                <select id="vehicle-select" onchange="runOptimization()" style="width: 100%; padding: 9px 12px; background: rgba(15, 23, 42, 0.95); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-main); font-size: 13px; outline: none; cursor: pointer;">
+                    <option value="truck">🚛 Commercial Truck (500 mi range &bull; 10 MPG &bull; 50 gal tank)</option>
+                    <option value="car">🚗 Passenger Car (420 mi range &bull; 30 MPG &bull; 14 gal tank)</option>
+                    <option value="suv">🚙 SUV / Pickup (440 mi range &bull; 20 MPG &bull; 22 gal tank)</option>
+                    <option value="bike">🏍️ Motorcycle / Bike (200 mi range &bull; 45 MPG &bull; 4.5 gal tank)</option>
+                </select>
+            </div>
+
             <div class="presets">
                 <span class="preset-btn" onclick="setPreset('New York, NY', 'Los Angeles, CA')">NY &rarr; LA</span>
                 <span class="preset-btn" onclick="setPreset('Austin, TX', 'Seattle, WA')">Austin &rarr; Seattle</span>
@@ -526,24 +536,41 @@
                 }
             });
 
-            // Refueling Algorithm
+            // Vehicle Specifications & Tank Limits
+            const vehicleProfiles = {
+                "truck": { name: "Commercial Truck", maxRange: 500.0, mpg: 10.0, capacity: 50.0, icon: "🚛" },
+                "car": { name: "Passenger Car", maxRange: 420.0, mpg: 30.0, capacity: 14.0, icon: "🚗" },
+                "suv": { name: "SUV / Pickup", maxRange: 440.0, mpg: 20.0, capacity: 22.0, icon: "🚙" },
+                "bike": { name: "Motorcycle / Bike", maxRange: 200.0, mpg: 45.0, capacity: 4.5, icon: "🏍️" }
+            };
+            const vType = document.getElementById('vehicle-select') ? document.getElementById('vehicle-select').value : 'truck';
+            const spec = vehicleProfiles[vType] || vehicleProfiles['truck'];
+            const maxRange = spec.maxRange;
+            const mpg = spec.mpg;
+            const capacity = spec.capacity;
+
             let currMile = 0;
-            let tankMiles = 500.0;
+            let tankMiles = maxRange;
             let stops = [];
             let totalCost = 0;
 
-            if (actualTotalMiles > 500.0) {
+            if (actualTotalMiles > maxRange) {
                 while (currMile + tankMiles < actualTotalMiles) {
                     let reachable = filtered.filter(s => s.mile > currMile && s.mile <= currMile + tankMiles);
                     if (reachable.length === 0) break;
 
-                    let window = reachable.filter(s => s.mile >= currMile + 250 && s.mile <= currMile + tankMiles - 10);
-                    if (window.length === 0) window = reachable;
+                    let safeMax = currMile + tankMiles - Math.min(20.0, maxRange * 0.08);
+                    let preferredMin = currMile + (maxRange * 0.50);
+
+                    let window = reachable.filter(s => s.mile >= preferredMin && s.mile <= safeMax);
+                    if (window.length === 0) window = reachable.filter(s => s.mile <= safeMax);
+                    if (!window || window.length === 0) window = reachable;
 
                     let best = window.reduce((min, s) => s.price < min.price ? s : min, window[0]);
                     let legDist = best.mile - currMile;
-                    let gallons = legDist / 10.0;
-                    let cost = gallons * best.price;
+                    let gallonsNeeded = Math.min(capacity, legDist / mpg);
+                    let gallons = Math.round(gallonsNeeded * 10) / 10;
+                    let cost = Math.round(gallons * best.price * 100) / 100;
                     totalCost += cost;
 
                     stops.push({
@@ -554,35 +581,39 @@
                         price: best.price,
                         mile: Math.round(best.mile * 10) / 10,
                         leg_dist: Math.round(legDist * 10) / 10,
-                        gallons: Math.round(gallons * 10) / 10,
-                        cost: Math.round(cost * 100) / 100,
+                        gallons: gallons,
+                        cost: cost,
                         lat: best.latitude,
                         lon: best.longitude
                     });
 
                     currMile = best.mile;
-                    tankMiles = 500.0;
+                    tankMiles = maxRange;
                 }
 
-                // Final leg
+                // Final leg to destination
                 if (stops.length > 0) {
                     let finalDist = actualTotalMiles - currMile;
-                    let finalGal = finalDist / 10.0;
-                    let finalCost = finalGal * stops[stops.length - 1].price;
+                    let finalGal = Math.round((finalDist / mpg) * 10) / 10;
+                    let finalCost = Math.round(finalGal * stops[stops.length - 1].price * 100) / 100;
                     totalCost += finalCost;
-                    stops[stops.length - 1].gallons = Math.round((stops[stops.length - 1].gallons + finalGal) * 10) / 10;
-                    stops[stops.length - 1].cost = Math.round((stops[stops.length - 1].cost + finalCost) * 100) / 100;
+                    stops[stops.length - 1].final_leg = {
+                        dist: Math.round(finalDist * 10) / 10,
+                        gallons: finalGal,
+                        cost: finalCost
+                    };
                 }
             } else {
                 let refPrice = filtered.length > 0 ? Math.min(...filtered.map(s => s.price)) : 3.25;
-                totalCost = (actualTotalMiles / 10.0) * refPrice;
+                totalCost = (actualTotalMiles / mpg) * refPrice;
             }
 
             return {
                 start: startLabel,
                 finish: finishLabel,
+                vehicle: spec,
                 totalMiles: Math.round(actualTotalMiles * 10) / 10,
-                totalGallons: Math.round((actualTotalMiles / 10.0) * 10) / 10,
+                totalGallons: Math.round((actualTotalMiles / mpg) * 10) / 10,
                 totalCost: Math.round(totalCost * 100) / 100,
                 stops: stops
             };
@@ -601,7 +632,12 @@
 
         function renderResults(data) {
             const panel = document.getElementById('results-panel');
+            const v = data.vehicle;
             let html = `
+                <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; font-size: 12px;">
+                    <span><strong>${v.icon} ${v.name}</strong></span>
+                    <span style="color: var(--text-muted);">Range: <strong>${v.maxRange}mi</strong> &bull; Tank: <strong>${v.capacity}gal</strong> &bull; <strong>${v.mpg} MPG</strong></span>
+                </div>
                 <div class="metrics-grid">
                     <div class="metric-card">
                         <div class="metric-title">Total Distance</div>
@@ -622,10 +658,10 @@
                 </div>
             `;
 
-            if (data.totalMiles <= 500) {
+            if (data.totalMiles <= v.maxRange) {
                 html += `
                     <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 12px; font-size: 12px; color: #93c5fd; margin-bottom: 14px;">
-                        Trip is under 500 miles! No refueling stops required on the initial full tank.
+                        Trip is under ${v.maxRange} miles! No refueling stops required on the initial full tank.
                     </div>
                 `;
             }
@@ -641,7 +677,7 @@
                             <div class="stop-location">${s.city}, ${s.state}</div>
                             <div class="stop-details">
                                 <span>Mile: <strong>${s.mile}</strong></span>
-                                <span>Refuel: <strong>${s.gallons} gal</strong></span>
+                                <span>Refuel: <strong>${s.gallons} gal</strong> (max ${v.capacity}g)</span>
                                 <span>Cost: <strong style="color: #10b981;">$${s.cost.toFixed(2)}</strong></span>
                             </div>
                         </div>

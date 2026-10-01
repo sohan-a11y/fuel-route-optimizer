@@ -340,6 +340,16 @@
                 <input type="text" id="finish-input" value="Los Angeles, CA" placeholder="City, State or Lat, Lon">
             </div>
 
+            <div class="input-group">
+                <label>Vehicle Type</label>
+                <select id="vehicle-select" onchange="fetchOptimizedRoute()" style="width: 100%; padding: 9px 12px; background: rgba(15, 23, 42, 0.95); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-main); font-size: 13px; outline: none; cursor: pointer;">
+                    <option value="truck">🚛 Commercial Truck (500 mi range &bull; 10 MPG &bull; 50 gal tank)</option>
+                    <option value="car">🚗 Passenger Car (420 mi range &bull; 30 MPG &bull; 14 gal tank)</option>
+                    <option value="suv">🚙 SUV / Pickup (440 mi range &bull; 20 MPG &bull; 22 gal tank)</option>
+                    <option value="bike">🏍️ Motorcycle / Bike (200 mi range &bull; 45 MPG &bull; 4.5 gal tank)</option>
+                </select>
+            </div>
+
             <div class="presets">
                 <span class="preset-btn" onclick="setPreset('New York, NY', 'Los Angeles, CA')">NY &rarr; LA</span>
                 <span class="preset-btn" onclick="setPreset('Austin, TX', 'Seattle, WA')">Austin &rarr; Seattle</span>
@@ -385,6 +395,7 @@
         async function fetchOptimizedRoute() {
             const start = document.getElementById('start-input').value.trim();
             const finish = document.getElementById('finish-input').value.trim();
+            const vehicle_type = document.getElementById('vehicle-select').value;
             const btn = document.getElementById('btn-submit');
             const btnText = document.getElementById('btn-text');
             const resultsPanel = document.getElementById('results-panel');
@@ -401,7 +412,7 @@
                 const response = await fetch('/api/route/', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ start, finish })
+                    body: JSON.stringify({ start, finish, vehicle_type })
                 });
 
                 const data = await response.json();
@@ -426,7 +437,17 @@
 
         function renderResults(data) {
             const panel = document.getElementById('results-panel');
-            let html = `
+            const v = data.vehicle || {};
+            let html = '';
+            if (v.name) {
+                html += `
+                    <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; font-size: 12px;">
+                        <span><strong>${v.name}</strong></span>
+                        <span style="color: var(--text-muted);">Range: <strong>${data.vehicle_max_range_miles}mi</strong> &bull; Tank: <strong>${data.tank_capacity_gallons}gal</strong> &bull; <strong>${data.fuel_efficiency_mpg} MPG</strong></span>
+                    </div>
+                `;
+            }
+            html += `
                 <div class="metrics-grid">
                     <div class="metric-card">
                         <div class="metric-title">Total Distance</div>

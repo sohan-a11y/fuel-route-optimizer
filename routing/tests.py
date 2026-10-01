@@ -113,3 +113,39 @@ class FuelRoutingAPITests(TestCase):
         payload = {"start": "Austin, TX", "finish": "Austin, TX"}
         response = self.client.post(self.route_url, data=payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_car_vehicle_profile_and_tank_capacity_cap(self):
+        """Verifies passenger car profile respects physical 14-gallon tank capacity."""
+        payload = {
+            "start": "New York, NY",
+            "finish": "Los Angeles, CA",
+            "vehicle_type": "car",
+        }
+        response = self.client.post(self.route_url, data=payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["tank_capacity_gallons"], 14.0)
+        self.assertEqual(data["fuel_efficiency_mpg"], 30.0)
+        self.assertEqual(data["vehicle_max_range_miles"], 420.0)
+
+        for stop in data["fuel_stops"]:
+            self.assertLessEqual(
+                stop["gallons_refueled"],
+                14.0,
+                f"Car refuel of {stop['gallons_refueled']} gal exceeded 14.0 gal tank capacity!",
+            )
+
+    def test_bike_vehicle_profile_and_tank_capacity_cap(self):
+        """Verifies motorcycle profile respects 4.5-gallon tank capacity."""
+        payload = {
+            "start": "Austin, TX",
+            "finish": "Dallas, TX",
+            "vehicle_type": "bike",
+        }
+        response = self.client.post(self.route_url, data=payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["tank_capacity_gallons"], 4.5)
+        self.assertEqual(data["fuel_efficiency_mpg"], 45.0)
+        self.assertEqual(data["vehicle_max_range_miles"], 200.0)
+
