@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fuel Route Optimizer | Live Interactive Demo</title>
+    <meta name="description" content="Live demonstration of the Fuel Route Optimization Algorithm for US road trips">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --panel-bg: rgba(15, 23, 42, 0.90);
+            --card-bg: rgba(30, 41, 59, 0.75);
+            --border-color: rgba(255, 255, 255, 0.12);
+            --accent: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.4);
+            --success: #10b981;
+            --warning: #f59e0b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+        }
+
+        #map {
+            flex: 1;
+            height: 100vh;
+            background: #1e293b;
+            z-index: 1;
+        }
+
+        .sidebar {
+            width: 450px;
+            max-width: 100vw;
+            height: 100vh;
+            background: var(--panel-bg);
+            backdrop-filter: blur(16px);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            box-shadow: 10px 0 30px rgba(0, 0, 0, 0.6);
+        }
+
+        .header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header h1 {
+            font-size: 19px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #60a5fa, #38bdf8, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header p {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .controls {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .input-group {
+            margin-bottom: 10px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 4px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 9px 12px;
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-main);
+            font-size: 13px;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .input-group input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .presets {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .preset-btn {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .preset-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: var(--text-main);
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 11px;
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 14px var(--accent-glow);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-submit:hover {
+            filter: brightness(1.1);
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .results {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 24px;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .metric-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 10px 12px;
+        }
+
+        .metric-title {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .metric-value {
+            font-size: 17px;
+            font-weight: 800;
+            color: var(--text-main);
+            margin-top: 3px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .metric-value.highlight {
+            color: var(--success);
+        }
+
+        .stops-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .stop-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 12px 14px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .stop-card:hover {
+            border-color: var(--accent);
+            transform: translateX(3px);
+        }
+
+        .stop-badge {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--success);
+            padding: 2px 7px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .stop-num {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            line-height: 20px;
+            text-align: center;
+            background: var(--accent);
+            color: white;
+            font-size: 11px;
+            font-weight: 700;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .stop-name {
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 2px;
+            max-width: 270px;
+        }
+
+        .stop-location {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .stop-details {
+            display: flex;
+            gap: 12px;
+            font-size: 11px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 6px;
+            color: #cbd5e1;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .leaflet-popup-content-wrapper {
+            background: #1e293b;
+            color: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+        .leaflet-popup-tip {
+            background: #1e293b;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="header">
+            <h1><span>⛽</span> Fuel Route Optimizer</h1>
+            <p>500-Mile Max Range &bull; 10 MPG &bull; Minimum Cost Stops</p>
+        </div>
+
+        <div class="controls">
+            <div class="input-group">
+                <label>Start Location</label>
+                <input type="text" id="start-input" value="New York, NY" placeholder="City, State">
+            </div>
+            <div class="input-group">
+                <label>Finish Location</label>
+                <input type="text" id="finish-input" value="Los Angeles, CA" placeholder="City, State">
+            </div>
+
+            <div class="presets">
+                <span class="preset-btn" onclick="setPreset('New York, NY', 'Los Angeles, CA')">NY &rarr; LA</span>
+                <span class="preset-btn" onclick="setPreset('Austin, TX', 'Seattle, WA')">Austin &rarr; Seattle</span>
+                <span class="preset-btn" onclick="setPreset('Chicago, IL', 'Miami, FL')">Chicago &rarr; Miami</span>
+                <span class="preset-btn" onclick="setPreset('Austin, TX', 'Dallas, TX')">Austin &rarr; Dallas (&lt;500mi)</span>
+            </div>
+
+            <button class="btn-submit" id="btn-submit" onclick="runOptimization()">
+                <span id="btn-text">Optimize Fuel Stops</span>
+            </button>
+        </div>
+
+        <div class="results" id="results-panel">
+            <div style="text-align: center; color: var(--text-muted); padding: 40px 0;">
+                Loading truck stops dataset...
+            </div>
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script>
+        // Pre-cached Coordinates for Major US Cities
+        const CITY_CACHE = {
+            "new york, ny": [40.7128, -74.0060],
+            "los angeles, ca": [34.0522, -118.2437],
+            "chicago, il": [41.8781, -87.6298],
+            "houston, tx": [29.7604, -95.3698],
+            "phoenix, az": [33.4484, -112.0740],
+            "philadelphia, pa": [39.9526, -75.1652],
+            "san antonio, tx": [29.4241, -98.4936],
+            "san diego, ca": [32.7157, -117.1611],
+            "dallas, tx": [32.7767, -96.7970],
+            "austin, tx": [30.2672, -97.7431],
+            "san jose, ca": [37.3382, -121.8863],
+            "san francisco, ca": [37.7749, -122.4194],
+            "seattle, wa": [47.6062, -122.3321],
+            "denver, co": [39.7392, -104.9903],
+            "boston, ma": [42.3601, -71.0589],
+            "miami, fl": [25.7617, -80.1918],
+            "atlanta, ga": [33.7490, -84.3880],
+            "las vegas, nv": [36.1699, -115.1398]
+        };
+
+        const map = L.map('map', { zoomControl: false }).setView([39.8283, -98.5795], 4);
+        L.control.zoom({ position: 'topright' }).addTo(map);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            maxZoom: 19
+        }).addTo(map);
+
+        let routeLayer = null;
+        let markersLayer = L.layerGroup().addTo(map);
+        let allStations = [];
+
+        // Load stations.json
+        fetch('stations.json')
+            .then(res => res.json())
+            .then(data => {
+                allStations = data;
+                document.getElementById('results-panel').innerHTML = `
+                    <div style="text-align: center; color: var(--text-muted); padding: 40px 0;">
+                        Ready! Loaded <strong>${allStations.length.toLocaleString()}</strong> US fuel stations. Click <strong>Optimize Fuel Stops</strong>.
+                    </div>
+                `;
+                runOptimization();
+            })
+            .catch(err => {
+                document.getElementById('results-panel').innerHTML = `<div style="color: red; padding: 20px;">Failed to load stations dataset: ${err.message}</div>`;
+            });
+
+        function setPreset(start, finish) {
+            document.getElementById('start-input').value = start;
+            document.getElementById('finish-input').value = finish;
+            runOptimization();
+        }
+
+        async function geocode(text) {
+            const clean = text.trim().toLowerCase();
+            if (CITY_CACHE[clean]) return { lat: CITY_CACHE[clean][0], lon: CITY_CACHE[clean][1], label: text };
+
+            // Check if coordinates
+            const parts = clean.split(',').map(s => parseFloat(s.trim()));
+            if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+                return { lat: parts[0], lon: parts[1], label: `${parts[0].toFixed(3)}, ${parts[1].toFixed(3)}` };
+            }
+
+            const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(text)}&format=json&countrycodes=us&limit=1`;
+            const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            const data = await r.json();
+            if (data && data.length > 0) {
+                return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), label: data[0].display_name };
+            }
+            throw new Error(`Location '${text}' could not be found.`);
+        }
+
+        async function runOptimization() {
+            if (allStations.length === 0) return;
+            const startStr = document.getElementById('start-input').value.trim();
+            const finishStr = document.getElementById('finish-input').value.trim();
+            const btn = document.getElementById('btn-submit');
+            const btnText = document.getElementById('btn-text');
+
+            btn.disabled = true;
+            btnText.innerHTML = '<span class="spinner"></span> Routing & Optimizing...';
+
+            try {
+                const start = await geocode(startStr);
+                const finish = await geocode(finishStr);
+
+                // Query OSRM
+                const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${start.lon},${start.lat};${finish.lon},${finish.lat}?overview=full&geometries=geojson`;
+                const osrmRes = await fetch(osrmUrl);
+                const osrmData = await osrmRes.json();
+
+                if (!osrmData.routes || osrmData.routes.length === 0) {
+                    throw new Error("No driving route found between these locations.");
+                }
+
+                const route = osrmData.routes[0];
+                const totalMiles = route.distance / 1609.344;
+                const coords = route.geometry.coordinates; // [lon, lat]
+
+                const result = calculateFuelStops(coords, totalMiles, start.label, finish.label);
+                renderResults(result);
+                renderMap(route.geometry, result, start, finish);
+
+            } catch (err) {
+                document.getElementById('results-panel').innerHTML = `
+                    <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 14px; color: #fca5a5;">
+                        <strong>Error:</strong> ${err.message}
+                    </div>
+                `;
+            } finally {
+                btn.disabled = false;
+                btnText.innerHTML = 'Optimize Fuel Stops';
+            }
+        }
+
+        function calculateFuelStops(coords, totalMiles, startLabel, finishLabel) {
+            // Compute cumulative distance array along coordinates
+            let cumDists = [0];
+            for (let i = 1; i < coords.length; i++) {
+                const d = haversine(coords[i-1][1], coords[i-1][0], coords[i][1], coords[i][0]);
+                cumDists.push(cumDists[i-1] + d);
+            }
+            const actualTotalMiles = cumDists[cumDists.length - 1];
+
+            // Bounding box filter
+            let minLon = 180, maxLon = -180, minLat = 90, maxLat = -90;
+            coords.forEach(c => {
+                if (c[0] < minLon) minLon = c[0];
+                if (c[0] > maxLon) maxLon = c[0];
+                if (c[1] < minLat) minLat = c[1];
+                if (c[1] > maxLat) maxLat = c[1];
+            });
+
+            const buf = 0.25;
+            let candidates = [];
+
+            // Sample route line segments for fast distance calculation
+            const step = Math.max(1, Math.floor(coords.length / 500));
+            const sampledCoords = [];
+            const sampledDists = [];
+            for (let i = 0; i < coords.length; i += step) {
+                sampledCoords.push(coords[i]);
+                sampledDists.push(cumDists[i]);
+            }
+
+            allStations.forEach(st => {
+                if (st.longitude >= minLon - buf && st.longitude <= maxLon + buf &&
+                    st.latitude >= minLat - buf && st.latitude <= maxLat + buf) {
+                    
+                    // Find closest sampled route point
+                    let minDist = Infinity;
+                    let bestMile = 0;
+                    for (let i = 0; i < sampledCoords.length; i++) {
+                        const d = haversine(st.latitude, st.longitude, sampledCoords[i][1], sampledCoords[i][0]);
+                        if (d < minDist) {
+                            minDist = d;
+                            bestMile = sampledDists[i];
+                        }
+                    }
+
+                    if (minDist <= 10.0 && bestMile > 5.0 && bestMile < actualTotalMiles - 5.0) {
+                        candidates.push({
+                            ...st,
+                            mile: bestMile,
+                            price: st.retail_price
+                        });
+                    }
+                }
+            });
+
+            candidates.sort((a, b) => a.mile - b.mile);
+
+            // Deduplicate stations within 2 miles
+            let filtered = [];
+            candidates.forEach(c => {
+                if (filtered.length === 0 || c.mile - filtered[filtered.length - 1].mile > 2.0) {
+                    filtered.push(c);
+                } else if (c.price < filtered[filtered.length - 1].price) {
+                    filtered[filtered.length - 1] = c;
+                }
+            });
+
+            // Refueling Algorithm
+            let currMile = 0;
+            let tankMiles = 500.0;
+            let stops = [];
+            let totalCost = 0;
+
+            if (actualTotalMiles > 500.0) {
+                while (currMile + tankMiles < actualTotalMiles) {
+                    let reachable = filtered.filter(s => s.mile > currMile && s.mile <= currMile + tankMiles);
+                    if (reachable.length === 0) break;
+
+                    let window = reachable.filter(s => s.mile >= currMile + 250 && s.mile <= currMile + tankMiles - 10);
+                    if (window.length === 0) window = reachable;
+
+                    let best = window.reduce((min, s) => s.price < min.price ? s : min, window[0]);
+                    let legDist = best.mile - currMile;
+                    let gallons = legDist / 10.0;
+                    let cost = gallons * best.price;
+                    totalCost += cost;
+
+                    stops.push({
+                        stop_number: stops.length + 1,
+                        name: best.name,
+                        city: best.city,
+                        state: best.state,
+                        price: best.price,
+                        mile: Math.round(best.mile * 10) / 10,
+                        leg_dist: Math.round(legDist * 10) / 10,
+                        gallons: Math.round(gallons * 10) / 10,
+                        cost: Math.round(cost * 100) / 100,
+                        lat: best.latitude,
+                        lon: best.longitude
+                    });
+
+                    currMile = best.mile;
+                    tankMiles = 500.0;
+                }
+
+                // Final leg
+                if (stops.length > 0) {
+                    let finalDist = actualTotalMiles - currMile;
+                    let finalGal = finalDist / 10.0;
+                    let finalCost = finalGal * stops[stops.length - 1].price;
+                    totalCost += finalCost;
+                    stops[stops.length - 1].gallons = Math.round((stops[stops.length - 1].gallons + finalGal) * 10) / 10;
+                    stops[stops.length - 1].cost = Math.round((stops[stops.length - 1].cost + finalCost) * 100) / 100;
+                }
+            } else {
+                let refPrice = filtered.length > 0 ? Math.min(...filtered.map(s => s.price)) : 3.25;
+                totalCost = (actualTotalMiles / 10.0) * refPrice;
+            }
+
+            return {
+                start: startLabel,
+                finish: finishLabel,
+                totalMiles: Math.round(actualTotalMiles * 10) / 10,
+                totalGallons: Math.round((actualTotalMiles / 10.0) * 10) / 10,
+                totalCost: Math.round(totalCost * 100) / 100,
+                stops: stops
+            };
+        }
+
+        function haversine(lat1, lon1, lat2, lon2) {
+            const R = 3958.8; // miles
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        function renderResults(data) {
+            const panel = document.getElementById('results-panel');
+            let html = `
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-title">Total Distance</div>
+                        <div class="metric-value">${data.totalMiles.toLocaleString()} mi</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-title">Total Fuel Cost</div>
+                        <div class="metric-value highlight">$${data.totalCost.toFixed(2)}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-title">Fuel Consumed</div>
+                        <div class="metric-value">${data.totalGallons} gal</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-title">Fuel Stops</div>
+                        <div class="metric-value">${data.stops.length}</div>
+                    </div>
+                </div>
+            `;
+
+            if (data.totalMiles <= 500) {
+                html += `
+                    <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 12px; font-size: 12px; color: #93c5fd; margin-bottom: 14px;">
+                        Trip is under 500 miles! No refueling stops required on the initial full tank.
+                    </div>
+                `;
+            }
+
+            if (data.stops.length > 0) {
+                html += `<h3 style="font-size: 12px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; letter-spacing: 0.05em;">Optimal Refueling Stops (${data.stops.length})</h3>`;
+                html += '<div class="stops-list">';
+                data.stops.forEach(s => {
+                    html += `
+                        <div class="stop-card" onclick="map.flyTo([${s.lat}, ${s.lon}], 12)">
+                            <span class="stop-badge">$${s.price.toFixed(3)}/gal</span>
+                            <div class="stop-name"><span class="stop-num">${s.stop_number}</span> ${s.name}</div>
+                            <div class="stop-location">${s.city}, ${s.state}</div>
+                            <div class="stop-details">
+                                <span>Mile: <strong>${s.mile}</strong></span>
+                                <span>Refuel: <strong>${s.gallons} gal</strong></span>
+                                <span>Cost: <strong style="color: #10b981;">$${s.cost.toFixed(2)}</strong></span>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            }
+
+            panel.innerHTML = html;
+        }
+
+        function renderMap(geometry, data, start, finish) {
+            markersLayer.clearLayers();
+            if (routeLayer) map.removeLayer(routeLayer);
+
+            routeLayer = L.geoJSON(geometry, {
+                style: { color: '#3b82f6', weight: 5, opacity: 0.85 }
+            }).addTo(map);
+
+            map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
+
+            L.circleMarker([start.lat, start.lon], {
+                radius: 8, fillColor: '#10b981', color: '#fff', weight: 2, fillOpacity: 1
+            }).bindPopup(`<b>Origin:</b> ${data.start}`).addTo(markersLayer);
+
+            L.circleMarker([finish.lat, finish.lon], {
+                radius: 8, fillColor: '#ef4444', color: '#fff', weight: 2, fillOpacity: 1
+            }).bindPopup(`<b>Destination:</b> ${data.finish}`).addTo(markersLayer);
+
+            data.stops.forEach(s => {
+                L.circleMarker([s.lat, s.lon], {
+                    radius: 7, fillColor: '#f59e0b', color: '#fff', weight: 2, fillOpacity: 1
+                }).bindPopup(`
+                    <div style="font-size: 12px;">
+                        <strong style="color: #60a5fa;">Stop #${s.stop_number}: ${s.name}</strong><br>
+                        ${s.city}, ${s.state}<br>
+                        <hr style="margin: 4px 0; border: none; border-top: 1px solid #475569;">
+                        <b>Price:</b> $${s.price.toFixed(3)}/gal<br>
+                        <b>Gallons:</b> ${s.gallons} gal<br>
+                        <b>Cost:</b> $${s.cost.toFixed(2)}<br>
+                        <b>Mile:</b> ${s.mile} mi
+                    </div>
+                `).addTo(markersLayer);
+            });
+        }
+    </script>
+</body>
+</html>

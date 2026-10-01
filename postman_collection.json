@@ -1,0 +1,146 @@
+{
+	"info": {
+		"_postman_id": "71851421-372d-46d5-9ffd-ff67f5616c1b",
+		"name": "Fuel Route Optimizer API",
+		"description": "Production-ready Postman collection for testing the Django Fuel Route Optimization API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/health/",
+					"host": ["{{base_url}}"],
+					"path": ["api", "health", ""]
+				},
+				"description": "Check API health and total loaded fuel stations count."
+			},
+			"response": []
+		},
+		{
+			"name": "Optimize Route (NY to LA - Cross Country)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"start\": \"New York, NY\",\n    \"finish\": \"Los Angeles, CA\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/route/",
+					"host": ["{{base_url}}"],
+					"path": ["api", "route", ""]
+				},
+				"description": "Long distance cross-country route (~2,790 miles). Calculates 6 optimal fuel stops where each leg is under 500 miles and fuel price is minimized."
+			},
+			"response": []
+		},
+		{
+			"name": "Optimize Route (Austin to Dallas - Under 500 Miles)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"start\": \"Austin, TX\",\n    \"finish\": \"Dallas, TX\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/route/",
+					"host": ["{{base_url}}"],
+					"path": ["api", "route", ""]
+				},
+				"description": "Trip under 500 miles. Reaches destination on initial full tank without mid-route stops, calculating total fuel cost."
+			},
+			"response": []
+		},
+		{
+			"name": "Optimize Route (Chicago to Miami - Mid Distance)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"start\": \"Chicago, IL\",\n    \"finish\": \"Miami, FL\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/route/",
+					"host": ["{{base_url}}"],
+					"path": ["api", "route", ""]
+				},
+				"description": "Medium-long distance route (~1,370 miles) across Midwest to Southeast."
+			},
+			"response": []
+		},
+		{
+			"name": "Optimize Route (Latitude & Longitude Coordinates Input)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"start\": \"30.2672, -97.7431\",\n    \"finish\": \"32.7767, -96.7970\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/route/",
+					"host": ["{{base_url}}"],
+					"path": ["api", "route", ""]
+				},
+				"description": "Accepts direct coordinates (lat, lon) bypassing geocoding."
+			},
+			"response": []
+		},
+		{
+			"name": "Optimize Route (GET with Query Params)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/route/?start=Austin,%20TX&finish=Dallas,%20TX",
+					"host": ["{{base_url}}"],
+					"path": ["api", "route", ""],
+					"query": [
+						{
+							"key": "start",
+							"value": "Austin, TX"
+						},
+						{
+							"key": "finish",
+							"value": "Dallas, TX"
+						}
+					]
+				},
+				"description": "GET request alternative for quick browser or query-param based testing."
+			},
+			"response": []
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://127.0.0.1:8000"
+		}
+	]
+}
