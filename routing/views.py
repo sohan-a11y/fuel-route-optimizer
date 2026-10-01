@@ -3,13 +3,15 @@ import logging
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from django.http import HttpResponse
+from django.views.generic import TemplateView
 
 from routing.serializers import RouteRequestSerializer, RouteResponseSerializer
 from routing.services.geocoding_service import geocode_location
 from routing.services.osrm_service import get_osrm_route
 from routing.services.fuel_optimizer import optimize_fuel_stops
+from routing.services.gpx_exporter import generate_gpx_route
 from routing.models import FuelStation
-from django.views.generic import TemplateView
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +27,8 @@ class RouteFuelOptimizationView(APIView):
     retrieves the route from OSRM, calculates the optimal fuel stops based on fuel prices,
     and returns the route map representation along with the total fuel cost.
 
-    Supports both POST (JSON body) and GET (query params) for easy Postman / browser testing.
+    Supports both POST (JSON body) and GET (query params) for easy Postman / browser testing,
+    and export_format='gpx' for downloading GPS navigation files.
     """
 
     def get(self, request):
@@ -36,7 +39,7 @@ class RouteFuelOptimizationView(APIView):
         serializer = RouteRequestSerializer(data=request.data)
         return self._process_request(serializer)
 
-    def _process_request(self, serializer: RouteRequestSerializer) -> Response:
+    def _process_request(self, serializer: RouteRequestSerializer):
         if not serializer.is_valid():
             return Response(
                 {"status": "error", "errors": serializer.errors},
@@ -46,6 +49,16 @@ class RouteFuelOptimizationView(APIView):
         start_input = serializer.validated_data["start"]
         finish_input = serializer.validated_data["finish"]
         vehicle_type = serializer.validated_data.get("vehicle_type", "truck")
+        strategy = serializer.validated_data.get("optimization_strategy", "lowest_cost")
+        initial_fuel_pct = serializer.validated_data.get("initial_fuel_percent", 100.0)
+        reserve_fuel_pct = serializer.validated_data.get("reserve_fuel_percent", 8.0)
+        max_detour = serializer.validated_data.get("max_detour_miles", 5.0)
+        include_detour = serializer.validated_data.get("include_detour_cost", True)
+        preferred_brands = serializer.validated_data.get("preferred_brands")
+        fleet_discount = serializer.validated_data.get("fleet_discount_cents", 0.0)
+        fuel_grade = serializer.validated_data.get("fuel_grade", "diesel")
+        compare_strategies = serializer.validated_data.get("compare_strategies", False)
+        export_format = serializer.validated_data.get("export_format", "json")
         custom_range = serializer.validated_data.get("max_range_miles")
         custom_mpg = serializer.validated_data.get("fuel_efficiency_mpg")
         custom_capacity = serializer.validated_data.get("tank_capacity_gallons")
@@ -71,10 +84,19 @@ class RouteFuelOptimizationView(APIView):
             )
             total_external_calls += calls3
 
-            # 4. Fuel Stop Optimization tailored to vehicle profile and physical tank limits
+            # 4. Multi-parameter Fuel Stop Optimization
             optimization_result = optimize_fuel_stops(
                 route_data=route_data,
                 vehicle_type=vehicle_type,
+                optimization_strategy=strategy,
+                initial_fuel_percent=initial_fuel_pct,
+                reserve_fuel_percent=reserve_fuel_pct,
+                max_detour_miles=max_detour,
+                include_detour_cost=include_detour,
+                preferred_brands=preferred_brands,
+                fleet_discount_cents=fleet_discount,
+                fuel_grade=fuel_grade,
+                compare_strategies=compare_strategies,
                 custom_range=custom_range,
                 custom_mpg=custom_mpg,
                 custom_capacity=custom_capacity,
@@ -82,11 +104,28 @@ class RouteFuelOptimizationView(APIView):
 
             execution_time_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
+            # 5. Handle GPX Export Format
+            if export_format == "gpx":
+                gpx_content = generate_gpx_route(
+                    optimization_result=optimization_result,
+                    start_label=start_label,
+                    finish_label=finish_label,
+                )
+                response = HttpResponse(gpx_content, content_type="application/gpx+xml")
+                response["Content-Disposition"] = 'attachment; filename="optimized_fuel_route.gpx"'
+                return response
+
+            # 6. JSON Response
             response_data = {
                 "status": "success",
                 "start_location": start_label,
                 "finish_location": finish_label,
+                "strategy": optimization_result["strategy"],
                 "vehicle": optimization_result["vehicle"],
+                "initial_fuel_state": optimization_result["initial_fuel_state"],
+                "parameters": optimization_result["parameters"],
+                "environmental_impact": optimization_result.get("environmental_impact"),
+                "trip_duration": optimization_result.get("trip_duration"),
                 "total_distance_miles": optimization_result["total_distance_miles"],
                 "total_duration_hours": optimization_result["total_duration_hours"],
                 "duration_formatted": optimization_result["duration_formatted"],
@@ -101,6 +140,9 @@ class RouteFuelOptimizationView(APIView):
                 "external_api_calls": total_external_calls,
                 "execution_time_ms": execution_time_ms,
             }
+
+            if "strategy_comparison" in optimization_result:
+                response_data["strategy_comparison"] = optimization_result["strategy_comparison"]
 
             if "note" in optimization_result:
                 response_data["note"] = optimization_result["note"]

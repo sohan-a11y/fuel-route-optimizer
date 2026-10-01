@@ -2,12 +2,12 @@
 	"info": {
 		"_postman_id": "71851421-372d-46d5-9ffd-ff67f5616c1b",
 		"name": "Fuel Route Optimizer API",
-		"description": "Production-ready Postman collection for testing the Django Fuel Route Optimization API with multi-vehicle tank support (Truck, Car, SUV, Bike)",
+		"description": "Production-ready Postman collection for testing the Django Fuel Route Optimization API with multi-vehicle tank support, 4 optimization strategies, HOS compliance, ESG metrics, and GPX export.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
 		{
-			"name": "Health Check",
+			"name": "0. Health Check",
 			"request": {
 				"method": "GET",
 				"header": [],
@@ -21,7 +21,7 @@
 			"response": []
 		},
 		{
-			"name": "1. Commercial Truck (500 mi Range, 10 MPG, 50 Gal Tank)",
+			"name": "1. Multi-Strategy Trade-Off Matrix (NY -> LA)",
 			"request": {
 				"method": "POST",
 				"header": [
@@ -32,7 +32,30 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"start\": \"New York, NY\",\n    \"finish\": \"Los Angeles, CA\",\n    \"vehicle_type\": \"truck\"\n}"
+					"raw": "{\n    \"start\": \"New York, NY\",\n    \"finish\": \"Los Angeles, CA\",\n    \"vehicle_type\": \"truck\",\n    \"compare_strategies\": true\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/route/",
+					"host": ["{{base_url}}"],
+					"path": ["api", "route", ""]
+				},
+				"description": "Compares all 4 strategies (Lowest Cost, Minimum Stops, Balanced, Conservative) side-by-side with total cost, stop count, and driving hours."
+			},
+			"response": []
+		},
+		{
+			"name": "2. Commercial Truck (500 mi Range, 10 MPG, 50 Gal Tank)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"start\": \"New York, NY\",\n    \"finish\": \"Los Angeles, CA\",\n    \"vehicle_type\": \"truck\",\n    \"optimization_strategy\": \"lowest_cost\"\n}"
 				},
 				"url": {
 					"raw": "{{base_url}}/api/route/",
@@ -44,7 +67,7 @@
 			"response": []
 		},
 		{
-			"name": "2. Passenger Car (420 mi Range, 30 MPG, 14 Gal Tank)",
+			"name": "3. Passenger Car (420 mi Range, 30 MPG, 14 Gal Tank, 87 Regular)",
 			"request": {
 				"method": "POST",
 				"header": [
@@ -55,19 +78,19 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"start\": \"New York, NY\",\n    \"finish\": \"Los Angeles, CA\",\n    \"vehicle_type\": \"car\"\n}"
+					"raw": "{\n    \"start\": \"Chicago, IL\",\n    \"finish\": \"Miami, FL\",\n    \"vehicle_type\": \"car\",\n    \"fuel_grade\": \"regular\"\n}"
 				},
 				"url": {
 					"raw": "{{base_url}}/api/route/",
 					"host": ["{{base_url}}"],
 					"path": ["api", "route", ""]
 				},
-				"description": "Standard passenger car: 14-gallon tank, 30 MPG, 420-mile range. Notice refuels are ~12-13 gallons per stop, never exceeding the 14-gallon tank."
+				"description": "Standard passenger car: 14-gallon tank, 30 MPG, 420-mile range. Notice refuels never exceed 14.0 gallons."
 			},
 			"response": []
 		},
 		{
-			"name": "3. Motorcycle / Bike (200 mi Range, 45 MPG, 4.5 Gal Tank)",
+			"name": "4. Motorcycle / Bike (200 mi Range, 45 MPG, 4.5 Gal Tank)",
 			"request": {
 				"method": "POST",
 				"header": [
@@ -90,30 +113,7 @@
 			"response": []
 		},
 		{
-			"name": "4. SUV / Light Truck (440 mi Range, 20 MPG, 22 Gal Tank)",
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "application/json"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n    \"start\": \"Chicago, IL\",\n    \"finish\": \"Miami, FL\",\n    \"vehicle_type\": \"suv\"\n}"
-				},
-				"url": {
-					"raw": "{{base_url}}/api/route/",
-					"host": ["{{base_url}}"],
-					"path": ["api", "route", ""]
-				},
-				"description": "SUV profile: 22-gallon tank, 20 MPG, 440-mile range."
-			},
-			"response": []
-		},
-		{
-			"name": "5. Short Distance Trip (< 500 Miles Single Tank)",
+			"name": "5. Short Route < 500 Miles (Austin -> Dallas)",
 			"request": {
 				"method": "POST",
 				"header": [
@@ -131,12 +131,12 @@
 					"host": ["{{base_url}}"],
 					"path": ["api", "route", ""]
 				},
-				"description": "Trip within vehicle range (195 mi <= 500 mi range). Confirms 0 mid-route stops required on initial tank."
+				"description": "Trip distance is ~195 miles, well within 500-mile range. 0 stops required, total cost calculated based on reference market price."
 			},
 			"response": []
 		},
 		{
-			"name": "6. Coordinates Input (Direct Lat, Lon)",
+			"name": "6. Half-Tank Departure (50% Starting Fuel)",
 			"request": {
 				"method": "POST",
 				"header": [
@@ -147,14 +147,80 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"start\": \"30.2672, -97.7431\",\n    \"finish\": \"32.7767, -96.7970\",\n    \"vehicle_type\": \"car\"\n}"
+					"raw": "{\n    \"start\": \"New York, NY\",\n    \"finish\": \"Los Angeles, CA\",\n    \"vehicle_type\": \"truck\",\n    \"initial_fuel_percent\": 50.0\n}"
 				},
 				"url": {
 					"raw": "{{base_url}}/api/route/",
 					"host": ["{{base_url}}"],
 					"path": ["api", "route", ""]
 				},
-				"description": "Direct latitude/longitude inputs with a car profile."
+				"description": "Vehicle starts with only 50% fuel (250 miles of range). First stop is scheduled within the first 250 miles."
+			},
+			"response": []
+		},
+		{
+			"name": "7. Fleet Loyalty Card ($0.15/gal off Love's & Pilot)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"start\": \"New York, NY\",\n    \"finish\": \"Los Angeles, CA\",\n    \"vehicle_type\": \"truck\",\n    \"preferred_brands\": [\"Love's\", \"Pilot\"],\n    \"fleet_discount_cents\": 0.15\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/route/",
+					"host": ["{{base_url}}"],
+					"path": ["api", "route", ""]
+				},
+				"description": "Applies a $0.15/gallon discount to preferred brands and factors it into station selection."
+			},
+			"response": []
+		},
+		{
+			"name": "8. Custom Vehicle Overrides (Tesla Semi / Heavy Hauler)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"start\": \"Seattle, WA\",\n    \"finish\": \"San Diego, CA\",\n    \"vehicle_type\": \"custom\",\n    \"max_range_miles\": 600.0,\n    \"fuel_efficiency_mpg\": 8.0,\n    \"tank_capacity_gallons\": 75.0\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/route/",
+					"host": ["{{base_url}}"],
+					"path": ["api", "route", ""]
+				},
+				"description": "Custom vehicle specs override default profiles."
+			},
+			"response": []
+		},
+		{
+			"name": "9. GPX 1.1 Route & Waypoints Export (Download XML)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/route/?start=Austin,+TX&finish=Dallas,+TX&vehicle_type=truck&export_format=gpx",
+					"host": ["{{base_url}}"],
+					"path": ["api", "route", ""],
+					"query": [
+						{"key": "start", "value": "Austin,+TX"},
+						{"key": "finish", "value": "Dallas,+TX"},
+						{"key": "vehicle_type", "value": "truck"},
+						{"key": "export_format", "value": "gpx"}
+					]
+				},
+				"description": "Returns standard GPX 1.1 XML track and waypoints for GPS navigation units."
 			},
 			"response": []
 		}

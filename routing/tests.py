@@ -1,3 +1,4 @@
+import xml.etree.ElementTree as ET
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
@@ -149,3 +150,49 @@ class FuelRoutingAPITests(TestCase):
         self.assertEqual(data["fuel_efficiency_mpg"], 45.0)
         self.assertEqual(data["vehicle_max_range_miles"], 200.0)
 
+    def test_strategy_comparison_matrix(self):
+        """Verifies compare_strategies=True returns evaluation across all 4 strategies."""
+        payload = {
+            "start": "New York, NY",
+            "finish": "Los Angeles, CA",
+            "compare_strategies": True,
+        }
+        response = self.client.post(self.route_url, data=payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertIn("strategy_comparison", data)
+        self.assertEqual(len(data["strategy_comparison"]), 4)
+
+        strat_names = [s["strategy"] for s in data["strategy_comparison"]]
+        self.assertIn("lowest_cost", strat_names)
+        self.assertIn("minimum_stops", strat_names)
+        self.assertIn("balanced", strat_names)
+        self.assertIn("conservative", strat_names)
+
+    def test_environmental_esg_metrics(self):
+        """Verifies calculation of carbon footprint and EPA tree offset metrics."""
+        payload = {
+            "start": "Chicago, IL",
+            "finish": "Miami, FL",
+            "vehicle_type": "car",
+            "fuel_grade": "regular",
+        }
+        response = self.client.post(self.route_url, data=payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertIn("environmental_impact", data)
+        env = data["environmental_impact"]
+        self.assertGreater(env["carbon_emissions_kg"], 0.0)
+        self.assertGreater(env["carbon_emissions_lbs"], 0.0)
+        self.assertGreater(env["trees_offset_per_year"], 0.0)
+
+    def test_gpx_export_format(self):
+        """Verifies export_format='gpx' returns valid GPX 1.1 XML."""
+        response = self.client.get(
+            self.route_url,
+            {"start": "Austin, TX", "finish": "Dallas, TX", "export_format": "gpx"}
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("application/gpx+xml", response.headers["Content-Type"])
+        root = ET.fromstring(response.content)
+        self.assertTrue(root.tag.endswith("gpx"))
